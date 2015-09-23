@@ -1,0 +1,94 @@
+---
+title: "Machine Learning-Peer Assessment"
+output: html_document
+---
+
+##Executive Summary
+
+The goal of this report is to predict the manner in which subjects did the exercise. This is the "classe" variable in the training set. The train https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv and test data https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv were collected from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. Random forest is used for the task of this analysis. The out of sample accuracy of random forest is 99,95% ,so the 20 submited predictions are correct.
+
+##Loading and Preprocess the data
+
+Load the data.
+```{r}
+train<-read.csv("pml-training.csv",na.string=c("#DIV/0!","NA"))
+test<-read.csv("pml-testing.csv",na.string=c("#DIV/0!","NA"))
+dim(train)
+dim(test)
+```
+
+Because there are too many predictors, they are removed those which have NAs instead of filling them with centered values.
+```{r}
+validCol<-colSums(is.na(train[,-ncol(train)]))==0
+train1<-train[,validCol]
+dim(train1)
+```
+
+The columns from the dataset that are numeric are selected, because error occured in the prediction with the factors. Probably because there must have been different levels in the factors between train and test data.
+```{r}
+numCol<-sapply(train1, is.numeric)
+train2<-train1[,numCol]
+dim(train2)
+```
+
+The outcome "classe" is returned back to the new train dataframe because it is a factor and it was removes in the previous step.
+```{r}
+train3<-cbind(train2,train1[,60])
+names(train3)[57]<-"classe"
+dim(train3)
+```
+
+The predictor "x" is being removed because is just a count of observations and it has nothing to do with the classification.
+```{r}
+trainFinal<-subset(train3,select=-c(X))
+dim(trainFinal)
+```
+
+##Cross Validation and Out of Sample Error
+
+The method for cross validation that it is chosen, is to randomly select 60% of "trainFinal" as "training" data and 40% of "trainingFinal" as "testing" data for the random forest classifier.
+```{r}
+library("caret")
+set.seed(7)
+trainIndex = createDataPartition(trainFinal[,1], p = 0.60)[[1]]
+training <- trainFinal[trainIndex,]
+testing <-trainFinal[-trainIndex,]
+dim(training)
+dim(testing)
+```
+
+Apply random forest.
+```{r}
+library(randomForest)
+model<-randomForest(classe~.,training)
+prediction<-predict(model,testing[,1:55])
+```
+
+Confusion matrix and out of sample error.
+```{r}
+confusionMatrix(testing$classe,prediction)
+outOfSampleError<-(1-0.9995)*100
+paste0("Out of sample error estimation: ",round(outOfSampleError,2), "%")
+```
+
+##Final Prediction
+
+Preprocess test data as we did on train data.
+```{r}
+test1<-test[,validCol]
+test2<-test1[,numCol]
+testFinal<-subset(test2,select=-c(X))
+```
+
+Train random forest with all train data "trainFinal" and predict "testFinal".
+```{r}
+modelFinal<-randomForest(classe~.,trainFinal)
+predictionFinal<-predict(modelFinal,testFinal)
+```
+
+##Results
+For this dataset random forest classifier was used. The out of sample accuracy is 99.95% and the error 0.05%. Thus the final predictions are correct after the submission was done. The predictions are:
+```{r}
+predictionFinal
+```
+
